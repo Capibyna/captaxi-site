@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CAP Taxi — Par un taxi pour les taxis</title><meta name="description" content="CAP Taxi, l'application pensée par un taxi pour les taxis : salons, courses, gestion et facturation.">
+<link rel="stylesheet" href="/style.css"></head><body>
+<header><div class="nav"><a class="logo" href="/">CAP<span>TAXI</span></a>
+<nav><a href="/confidentialite.html">Confidentialité</a><a href="/conditions.html">Conditions</a><a href="/mentions-legales.html">Mentions légales</a></nav></div></header>
+<main>
+<section class="hero">
+<div class="mots" id="mots" style="opacity:0;transition:opacity .7s">COURSES <i>·</i> SALONS<br>GESTION <i>·</i> FACTURATION</div>
+<div id="logo" style="opacity:0;transition:opacity .7s"><div class="big">CAP</div><div class="sub">TAXI</div>
+<div class="slogan">Par un taxi pour les taxis</div></div>
+<svg class="voiture" viewBox="0 0 270 190" role="img" aria-label="Taxi qui allume son lumineux et ses phares">
+<defs>
+<radialGradient id="hr"><stop offset="0" stop-color="#FF3B3B" stop-opacity=".55"/><stop offset="1" stop-color="#FF3B3B" stop-opacity="0"/></radialGradient>
+<radialGradient id="hv"><stop offset="0" stop-color="#28FF82" stop-opacity=".55"/><stop offset="1" stop-color="#28FF82" stop-opacity="0"/></radialGradient>
+<radialGradient id="led"><stop offset="0" stop-color="#CFEAFF" stop-opacity=".75"/><stop offset="1" stop-color="#9FD3FF" stop-opacity="0"/></radialGradient>
+<radialGradient id="sol"><stop offset="0" stop-color="#9FD3FF" stop-opacity=".3"/><stop offset="1" stop-color="#9FD3FF" stop-opacity="0"/></radialGradient>
+</defs>
+<rect x="100" y="6" width="70" height="22" rx="5" fill="#1a1d24" stroke="#2b313c" stroke-width="2"/><text x="135" y="22" text-anchor="middle" font-family="Arial" font-weight="900" font-size="13" letter-spacing="3" fill="#3a3f48">TAXI</text>
+<path d="M78 34 L192 34 L214 82 L56 82 Z" fill="#12151b" stroke="#2b313c" stroke-width="1.5"/><path d="M86 40 L184 40 L202 78 L68 78 Z" fill="#0b0d12"/>
+<path d="M30 92 Q30 82 44 82 L226 82 Q240 82 240 92 L246 140 Q246 150 236 150 L34 150 Q24 150 24 140 Z" fill="#171a21" stroke="#2b313c" stroke-width="1.5"/>
+<polygon points="34,98 92,104 90,114 36,110" fill="#2a2f38"/><polygon points="236,98 178,104 180,114 234,110" fill="#2a2f38"/>
+<rect x="40" y="118" width="40" height="3" rx="1.5" fill="#2a2f38"/><rect x="190" y="118" width="40" height="3" rx="1.5" fill="#2a2f38"/>
+<rect x="104" y="106" width="62" height="22" rx="6" fill="#0d0f14" stroke="#2b313c"/><path d="M110 113 H160 M110 118 H160 M110 123 H160" stroke="#232831" stroke-width="2"/>
+<rect x="44" y="150" width="26" height="22" rx="4" fill="#0d0f14"/><rect x="200" y="150" width="26" height="22" rx="4" fill="#0d0f14"/><rect x="106" y="136" width="58" height="9" rx="2" fill="#E9ECF1"/>
+<g class="ly" id="rouge" opacity="0"><ellipse cx="135" cy="17" rx="70" ry="24" fill="url(#hr)"/><rect x="100" y="6" width="70" height="22" rx="5" fill="#3a0b0b" stroke="#FF4D4D" stroke-width="2"/><text x="135" y="22" text-anchor="middle" font-family="Arial" font-weight="900" font-size="13" letter-spacing="3" fill="#FF6B6B">TAXI</text></g>
+<g class="ly" id="vert" opacity="0"><ellipse cx="135" cy="17" rx="70" ry="24" fill="url(#hv)"/><rect x="100" y="6" width="70" height="22" rx="5" fill="#06301a" stroke="#3BFF8A" stroke-width="2"/><text x="135" y="22" text-anchor="middle" font-family="Arial" font-weight="900" font-size="13" letter-spacing="3" fill="#5BFFA0">TAXI</text></g>
+<g class="ly" id="jour" opacity="0"><rect x="40" y="118" width="40" height="3" rx="1.5" fill="#F2FAFF"/><rect x="190" y="118" width="40" height="3" rx="1.5" fill="#F2FAFF"/></g>
+<g id="phares" opacity="0"><ellipse cx="135" cy="180" rx="135" ry="12" fill="url(#sol)"/><ellipse cx="62" cy="106" rx="44" ry="16" fill="url(#led)"/><ellipse cx="208" cy="106" rx="44" ry="16" fill="url(#led)"/><polygon points="34,98 92,104 90,114 36,110" fill="#F2FAFF"/><polygon points="236,98 178,104 180,114 234,110" fill="#F2FAFF"/></g>
+</svg>
+<div id="acces" style="opacity:0;transition:opacity .6s">
+<a class="btn" href="/app/">Accéder à CAP sur ordinateur</a>
+<p class="maj" style="margin-top:12px">Même compte que sur téléphone : votre e-mail et un code reçu par e-mail.</p>
+</div>
+</section>
+<script>
+(function(){const $=i=>document.getElementById(i),o=(i,v)=>$(i).setAttribute('opacity',v);
+function ph(v,d){$('phares').style.transition='opacity '+d+'s';o('phares',v);}
+[[500,()=>o('rouge',1)],[1050,()=>o('jour',1)],[1400,()=>ph(1,.35)],[1950,()=>{o('vert',1);o('rouge',0)}],
+[2550,()=>ph(.15,.09)],[2640,()=>ph(1,.09)],[2810,()=>ph(.15,.09)],[2900,()=>ph(1,.09)],
+[3300,()=>{$('mots').style.opacity=1;$('logo').style.opacity=1}],[3900,()=>$('acces').style.opacity=1]].forEach(([t,f])=>setTimeout(f,t));})();
+</script>
+<div class="card">
+<h2 style="margin-top:0">Qui sommes-nous ?</h2>
+<p>CAP Taxi, c'est l'application pensée par un taxi pour les taxis. Échangez avec vos collègues dans vos salons et en privé. Partagez et recevez des courses, au plus proche ou au coefficient. Gérez vos courses conventionnées et vos réservations. Créez et envoyez vos factures en un instant. Tout ce dont un chauffeur a besoin, rien de plus.</p>
+<span class="soon">Bientôt sur l'App Store et Google Play</span> <a class="btn2" href="/app/">Version ordinateur</a>
+</div>
+<div class="card">
+<h2 style="margin-top:0">Nous contacter</h2>
+<p>Une question, une suggestion, un problème ? Écrivez-nous à <a href="mailto:contact@captaxi.app">contact@captaxi.app</a>.</p>
+</div>
+</main>
+<footer>© 2026 IBYNA · CAP Taxi · <a href="mailto:contact@captaxi.app">contact@captaxi.app</a><br>
+<a href="/confidentialite.html">Confidentialité</a><a href="/conditions.html">Conditions d'utilisation</a><a href="/mentions-legales.html">Mentions légales</a></footer>
+</body></html>
