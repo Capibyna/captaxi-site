@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow"><meta name="theme-color" content="#0E1116">
+<title>CAP Taxi — Suivi de votre taxi</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+:root{--bg:#0E1116;--card:#181C23;--card2:#222833;--line:#2B313C;--text:#F4F5F7;--soft:#C7CDD6;--mute:#9AA3AF;--gold:#F5B300;--goldbg:#2A2410;--green:#22C55E;--greenbg:#0F2A1A;--blue:#7DB7FF}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:var(--bg);color:var(--text);font-family:-apple-system,"Inter",Segoe UI,Roboto,sans-serif}
+.wrap{max-width:560px;margin:0 auto;padding:14px 16px 40px;display:flex;flex-direction:column;gap:12px}
+.top{display:flex;align-items:baseline;gap:8px}.logo{color:var(--gold);font-weight:900;font-size:24px;letter-spacing:2px}.logo span{color:var(--soft);font-size:11px;letter-spacing:4px;margin-left:4px}
+.etat{background:var(--card);border-radius:18px;padding:16px}
+.etat h1{font-size:22px;font-weight:900}.etat p{color:var(--soft);margin-top:4px;font-size:15px}
+.eta{color:var(--gold);font-weight:900;font-size:30px;margin-top:6px}
+#carte{height:300px;border-radius:18px;overflow:hidden;background:var(--card);z-index:0}
+.maj{color:var(--mute);font-size:13px;margin-top:-4px}
+.veh{background:var(--card);border-radius:18px;padding:16px;display:flex;flex-direction:column;gap:8px}
+.veh .nom{font-size:13px;color:var(--mute);font-weight:800;letter-spacing:1px}
+.veh .modele{font-size:20px;font-weight:900}.veh .coul{color:var(--soft);font-size:15px}
+.plaque{align-self:flex-start;background:#F4F5F7;color:#111;font-weight:900;font-size:22px;letter-spacing:2px;border-radius:8px;padding:6px 14px;border-left:14px solid #1E4FD8;font-family:ui-monospace,Menlo,monospace}
+.btn{display:block;text-align:center;text-decoration:none;font-weight:900;font-size:17px;border-radius:16px;padding:15px;border:0;cursor:pointer;width:100%}
+.vert{background:var(--green);color:#06140b}.or{background:var(--gold);color:#111}
+.msgs{background:var(--card);border-radius:18px;padding:14px;display:flex;flex-direction:column;gap:8px}
+.msgs h2{font-size:16px;font-weight:900}
+.m{max-width:85%;border-radius:12px;padding:8px 11px;font-size:15px;line-height:1.35}
+.m.c{align-self:flex-end;background:var(--goldbg)}.m.d{align-self:flex-start;background:var(--card2)}
+.m small{display:block;color:var(--mute);font-size:11px;margin-top:2px}
+.ecrire{display:flex;gap:8px}.ecrire input{flex:1;background:var(--bg);border:1px solid var(--line);border-radius:12px;color:var(--text);font-size:16px;padding:11px}
+.ecrire button{width:auto;padding:0 16px;font-size:15px}
+.err{color:#FCA5A5;font-size:14px}
+.pied{color:var(--mute);font-size:12px;text-align:center;margin-top:8px}
+.cache{display:none}
+</style></head><body>
+<div class="wrap">
+  <div class="top"><div class="logo">CAP<span>TAXI</span></div></div>
+  <div class="etat"><h1 id="titre">…</h1><p id="sous"></p><div class="eta" id="eta"></div></div>
+  <div id="carte" class="cache"></div>
+  <div class="maj cache" id="maj"></div>
+  <div class="veh cache" id="veh">
+    <div class="nom" id="chauffeur"></div>
+    <div class="modele" id="modele"></div>
+    <div class="coul" id="couleur"></div>
+    <div class="plaque" id="plaque"></div>
+    <a class="btn vert cache" id="appeler" href="#"></a>
+  </div>
+  <div class="msgs cache" id="msgs">
+    <h2 id="tmsg"></h2>
+    <div id="liste" style="display:flex;flex-direction:column;gap:8px"></div>
+    <div class="ecrire" id="zone"><input id="texte" maxlength="500"><button class="btn or" id="envoyer"></button></div>
+    <div class="err" id="err"></div>
+  </div>
+  <div class="pied">CAP Taxi · captaxi.app</div>
+</div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const URL_API='https://rdwqlexsfkptoiohxcnt.supabase.co/rest/v1/rpc/', CLE='sb_publishable_L5WtT9w8fwSE1lBaQkrEFQ_oc5hLKrr';
+const token=new URLSearchParams(location.search).get('t')||'';
+const EN=!/^fr/i.test(navigator.language||'fr');
+const T=EN?{route:'Your taxi is on its way',arrive:'Your taxi has arrived',arriveP:'Your driver is waiting for you at the pick-up point.',bord:'Have a good trip!',bordP:'You are on board. The driver’s position is no longer shown.',annule:'This ride is no longer active',annuleP:'Please contact the person who booked your taxi.',invalide:'Link not valid',invalideP:'This tracking link has expired or is incorrect.',eta:'≈ {n} min',etaP:'Estimated arrival',maj:'Position updated {t} ago',majOff:'The driver’s position will appear as soon as it is received.',appeler:'📞 Call the driver',msg:'Message the driver',ph:'Write a message…',env:'Send',vous:'You',chauffeur:'Driver',min:'{n} min',sec:'a few seconds'}
+:{route:'Votre taxi est en route',arrive:'Votre taxi est arrivé',arriveP:'Votre chauffeur vous attend au point de prise en charge.',bord:'Bon trajet !',bordP:'Vous êtes à bord. La position du chauffeur n’est plus affichée.',annule:'Cette course n’est plus active',annuleP:'Contactez la personne qui a réservé votre taxi.',invalide:'Lien non valable',invalideP:'Ce lien de suivi a expiré ou il est incorrect.',eta:'≈ {n} min',etaP:'Arrivée estimée',maj:'Position mise à jour il y a {t}',majOff:'La position du chauffeur s’affichera dès qu’elle sera reçue.',appeler:'📞 Appeler le chauffeur',msg:'Écrire au chauffeur',ph:'Votre message…',env:'Envoyer',vous:'Vous',chauffeur:'Chauffeur',min:'{n} min',sec:'quelques secondes'};
+document.documentElement.lang=EN?'en':'fr';
+const $=id=>document.getElementById(id);
+$('tmsg').textContent=T.msg;$('texte').placeholder=T.ph;$('envoyer').textContent=T.env;
+async function rpc(f,body){const r=await fetch(URL_API+f,{method:'POST',headers:{apikey:CLE,Authorization:'Bearer '+CLE,'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const j=await r.json().catch(()=>null);if(!r.ok)throw new Error((j&&j.message)||'Erreur');return j;}
+let carte=null,mTaxi=null,mDep=null,cadre=false,nbMsg=-1;
+function iconeTaxi(){return L.divIcon({className:'',html:'<div style="font-size:30px;line-height:30px;filter:drop-shadow(0 2px 4px #000)">🚕</div>',iconSize:[30,30],iconAnchor:[15,15]});}
+function iconeDep(){return L.divIcon({className:'',html:'<div style="width:18px;height:18px;border-radius:50%;background:#F5B300;border:3px solid #fff;box-shadow:0 0 0 4px rgba(245,179,0,.35)"></div>',iconSize:[18,18],iconAnchor:[9,9]});}
+function majCarte(d){
+  const montrer=(d.etape==='en_route'||d.etape==='arrive')&&(d.depart_lat||d.lat);
+  $('carte').classList.toggle('cache',!montrer);if(!montrer||!window.L)return;
+  if(!carte){carte=L.map('carte',{zoomControl:false,attributionControl:true});L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap',maxZoom:19}).addTo(carte);}
+  if(d.depart_lat){if(!mDep)mDep=L.marker([d.depart_lat,d.depart_lng],{icon:iconeDep()}).addTo(carte);}
+  if(d.lat){const p=[d.lat,d.lng];if(!mTaxi)mTaxi=L.marker(p,{icon:iconeTaxi()}).addTo(carte);else mTaxi.setLatLng(p);}
+  else if(mTaxi){carte.removeLayer(mTaxi);mTaxi=null;}
+  const pts=[mDep&&mDep.getLatLng(),mTaxi&&mTaxi.getLatLng()].filter(Boolean);
+  if(pts.length===2&&(!cadre||!carte.getBounds().contains(pts[1]))){carte.fitBounds(L.latLngBounds(pts),{padding:[50,50],maxZoom:16});cadre=true;}
+  else if(pts.length===1&&!cadre){carte.setView(pts[0],15);cadre=true;}
+  setTimeout(()=>carte.invalidateSize(),50);
+}
+function ilya(at){const s=Math.max(0,(Date.now()-new Date(at).getTime())/1000);return s<60?T.sec:T.min.replace('{n}',Math.round(s/60));}
+function afficher(d){
+  if(!d){$('titre').textContent=T.invalide;$('sous').textContent=T.invalideP;$('eta').textContent='';['carte','veh','msgs','maj'].forEach(i=>$(i).classList.add('cache'));return;}
+  const e=d.etape;
+  $('titre').textContent=e==='en_route'?T.route:e==='arrive'?T.arrive:e==='a_bord'?T.bord:T.annule;
+  $('sous').textContent=e==='arrive'?T.arriveP:e==='a_bord'?T.bordP:e==='annulee'?T.annuleP:(d.depart||'');
+  $('eta').textContent=e==='en_route'&&d.eta!=null?T.eta.replace('{n}',d.eta):'';
+  majCarte(d);
+  const approche=e==='en_route'||e==='arrive';
+  $('maj').classList.toggle('cache',!approche);
+  $('maj').textContent=d.lat?T.maj.replace('{t}',ilya(d.position_at)):T.majOff;
+  $('veh').classList.toggle('cache',e==='annulee');
+  $('chauffeur').textContent=(T.chauffeur+' : '+(d.chauffeur||'')).toUpperCase();
+  $('modele').textContent=d.vehicule||'';$('couleur').textContent=d.couleur||'';
+  $('plaque').textContent=d.immatriculation||'';$('plaque').classList.toggle('cache',!d.immatriculation);
+  if(d.telephone){$('appeler').href='tel:'+d.telephone;$('appeler').textContent=T.appeler;$('appeler').classList.remove('cache');}else $('appeler').classList.add('cache');
+  const msgs=d.messages||[];
+  $('msgs').classList.toggle('cache',!d.ecrire&&!msgs.length);$('zone').classList.toggle('cache',!d.ecrire);
+  if(msgs.length!==nbMsg){nbMsg=msgs.length;$('liste').innerHTML='';
+    msgs.forEach(m=>{const b=document.createElement('div');b.className='m '+(m.du_client?'c':'d');b.textContent=m.texte;
+      const s=document.createElement('small');s.textContent=(m.du_client?T.vous:(d.chauffeur||T.chauffeur))+' · '+new Date(m.at).toLocaleTimeString(EN?'en-GB':'fr-FR',{hour:'2-digit',minute:'2-digit'});b.appendChild(s);$('liste').appendChild(b);});}
+}
+let fin=false;
+async function charger(){try{const d=await rpc('suivi_course',{p_token:token});afficher(d);if(!d||d.etape==='a_bord'||d.etape==='annulee')fin=true;}catch(e){}}
+async function envoyer(){const t=$('texte').value.trim();if(!t)return;$('err').textContent='';$('envoyer').disabled=true;
+  try{await rpc('suivi_ecrire',{p_token:token,p_texte:t});$('texte').value='';await charger();}catch(e){$('err').textContent=e.message;}$('envoyer').disabled=false;}
+$('envoyer').onclick=envoyer;$('texte').addEventListener('keydown',e=>{if(e.key==='Enter')envoyer();});
+charger();setInterval(()=>{if(!fin)charger();},8000);
+</script>
+</body></html>
