@@ -60,8 +60,8 @@ html,body{background:var(--bg);color:var(--text);font-family:-apple-system,"Inte
 const URL_API='https://rdwqlexsfkptoiohxcnt.supabase.co/rest/v1/rpc/', CLE='sb_publishable_L5WtT9w8fwSE1lBaQkrEFQ_oc5hLKrr';
 const token=new URLSearchParams(location.search).get('t')||'';
 const EN=!/^fr/i.test(navigator.language||'fr');
-const T=EN?{route:'Your taxi is on its way',arrive:'Your taxi has arrived',arriveP:'Your driver is waiting for you at the pick-up point.',bord:'Have a good trip!',bordP:'You are on board. The driver’s position is no longer shown.',annule:'This ride is no longer active',annuleP:'Please contact the person who booked your taxi.',invalide:'Link not valid',invalideP:'This tracking link has expired or is incorrect.',eta:'≈ {n} min',etaP:'Estimated arrival',maj:'Position updated {t} ago',majOff:'The driver’s position will appear as soon as it is received.',appeler:'📞 Call the driver',msg:'Message the driver',ph:'Write a message…',env:'Send',vous:'You',chauffeur:'Driver',min:'{n} min',sec:'a few seconds'}
-:{route:'Votre taxi est en route',arrive:'Votre taxi est arrivé',arriveP:'Votre chauffeur vous attend au point de prise en charge.',bord:'Bon trajet !',bordP:'Vous êtes à bord. La position du chauffeur n’est plus affichée.',annule:'Cette course n’est plus active',annuleP:'Contactez la personne qui a réservé votre taxi.',invalide:'Lien non valable',invalideP:'Ce lien de suivi a expiré ou il est incorrect.',eta:'≈ {n} min',etaP:'Arrivée estimée',maj:'Position mise à jour il y a {t}',majOff:'La position du chauffeur s’affichera dès qu’elle sera reçue.',appeler:'📞 Appeler le chauffeur',msg:'Écrire au chauffeur',ph:'Votre message…',env:'Envoyer',vous:'Vous',chauffeur:'Chauffeur',min:'{n} min',sec:'quelques secondes'};
+const T=EN?{route:'Your taxi is on its way',arrive:'Your taxi has arrived',arriveP:'Your driver is waiting for you at the pick-up point.',bord:'Have a good trip!',bordP:'You are on board. The driver’s position is no longer shown.',annule:'This ride is no longer active',annuleP:'Please contact the person who booked your taxi.',invalide:'Link not valid',invalideP:'This tracking link has expired or is incorrect.',eta:'≈ {n} min',etaP:'Estimated arrival',maj:'Position updated {t} ago',majOff:'The driver’s position will appear as soon as it is received.',appeler:'Call the driver',prevu:'Your taxi is booked',prevuP:'Live tracking will appear here when your driver is on the way.',prevuSans:'Your booking is confirmed. Your driver’s details will appear here.',le:'',a:' at ',msg:'Message the driver',ph:'Write a message…',env:'Send',vous:'You',chauffeur:'Driver',min:'{n} min',sec:'a few seconds'}
+:{route:'Votre taxi est en route',arrive:'Votre taxi est arrivé',arriveP:'Votre chauffeur vous attend au point de prise en charge.',bord:'Bon trajet !',bordP:'Vous êtes à bord. La position du chauffeur n’est plus affichée.',annule:'Cette course n’est plus active',annuleP:'Contactez la personne qui a réservé votre taxi.',invalide:'Lien non valable',invalideP:'Ce lien de suivi a expiré ou il est incorrect.',eta:'≈ {n} min',etaP:'Arrivée estimée',maj:'Position mise à jour il y a {t}',majOff:'La position du chauffeur s’affichera dès qu’elle sera reçue.',appeler:'Appeler le chauffeur',prevu:'Votre taxi est réservé',prevuP:'Le suivi en direct s’affichera ici quand votre chauffeur sera en route.',prevuSans:'Votre réservation est confirmée. Les informations de votre chauffeur s’afficheront ici.',le:'',a:' à ',msg:'Écrire au chauffeur',ph:'Votre message…',env:'Envoyer',vous:'Vous',chauffeur:'Chauffeur',min:'{n} min',sec:'quelques secondes'};
 document.documentElement.lang=EN?'en':'fr';
 const $=id=>document.getElementById(id);
 $('tmsg').textContent=T.msg;$('texte').placeholder=T.ph;$('envoyer').textContent=T.env;
@@ -128,14 +128,15 @@ function ilya(at){const s=Math.max(0,(Date.now()-new Date(at).getTime())/1000);r
 function afficher(d){
   if(!d){$('titre').textContent=T.invalide;$('sous').textContent=T.invalideP;$('eta').textContent='';['carte','veh','msgs','maj'].forEach(i=>$(i).classList.add('cache'));return;}
   const e=d.etape;
-  $('titre').textContent=e==='en_route'?T.route:e==='arrive'?T.arrive:e==='a_bord'?T.bord:T.annule;
-  $('sous').textContent=e==='arrive'?T.arriveP:e==='a_bord'?T.bordP:e==='annulee'?T.annuleP:(d.depart||'');
+  $('titre').textContent=e==='prevu'?T.prevu:e==='en_route'?T.route:e==='arrive'?T.arrive:e==='a_bord'?T.bord:T.annule;
+  $('sous').textContent=e==='prevu'?[quandTxt(d.quand),d.depart].filter(Boolean).join(' · ')+'\n'+(d.chauffeur?T.prevuP:T.prevuSans):e==='arrive'?T.arriveP:e==='a_bord'?T.bordP:e==='annulee'?T.annuleP:(d.depart||'');
+  $('sous').style.whiteSpace='pre-line';
   $('eta').textContent=e==='en_route'&&d.eta!=null?T.eta.replace('{n}',d.eta):'';
   majCarte(d);
   const approche=e==='en_route'||e==='arrive';
   $('maj').classList.toggle('cache',!approche);
   $('maj').textContent=d.lat?T.maj.replace('{t}',ilya(d.position_at)):T.majOff;
-  $('veh').classList.toggle('cache',e==='annulee');
+  $('veh').classList.toggle('cache',e==='annulee'||!d.chauffeur);
   $('chauffeur').textContent=(T.chauffeur+' : '+(d.chauffeur||'')).toUpperCase();
   $('modele').textContent=d.vehicule||'';$('couleur').textContent=d.couleur||'';
   $('plaque').textContent=d.immatriculation||'';$('plaque').classList.toggle('cache',!d.immatriculation);
@@ -146,11 +147,12 @@ function afficher(d){
     msgs.forEach(m=>{const b=document.createElement('div');b.className='m '+(m.du_client?'c':'d');b.textContent=m.texte;
       const s=document.createElement('small');s.textContent=(m.du_client?T.vous:(d.chauffeur||T.chauffeur))+' · '+new Date(m.at).toLocaleTimeString(EN?'en-GB':'fr-FR',{hour:'2-digit',minute:'2-digit'});b.appendChild(s);$('liste').appendChild(b);});}
 }
-let fin=false;
-async function charger(){try{const d=await rpc('suivi_course',{p_token:token});afficher(d);if(!d||d.etape==='a_bord'||d.etape==='annulee')fin=true;}catch(e){}}
+let fin=false,etapeAct='';
+function quandTxt(q){if(!q)return '';const d=new Date(q);const j=d.toLocaleDateString(EN?'en-GB':'fr-FR',{weekday:'long',day:'numeric',month:'long'});const h=EN?d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}):d.getHours()+'h'+String(d.getMinutes()).padStart(2,'0');return (EN?j:j.charAt(0).toUpperCase()+j.slice(1))+T.a+h;}
+async function charger(){try{const d=await rpc('suivi_course',{p_token:token});etapeAct=d?d.etape:'';afficher(d);if(!d||d.etape==='a_bord'||d.etape==='annulee')fin=true;}catch(e){}}
 async function envoyer(){const t=$('texte').value.trim();if(!t)return;$('err').textContent='';$('envoyer').disabled=true;
   try{await rpc('suivi_ecrire',{p_token:token,p_texte:t});$('texte').value='';await charger();}catch(e){$('err').textContent=e.message;}$('envoyer').disabled=false;}
 $('envoyer').onclick=envoyer;$('texte').addEventListener('keydown',e=>{if(e.key==='Enter')envoyer();});
-charger();setInterval(()=>{if(!fin)charger();},8000);
+let tour=0;charger();setInterval(()=>{tour++;if(!fin&&(etapeAct!=='prevu'||tour%4===0))charger();},8000);
 </script>
 </body></html>
