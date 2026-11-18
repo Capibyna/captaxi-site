@@ -2,7 +2,7 @@
 <html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow"><meta name="theme-color" content="#0E1116">
 <title>CAP Taxi — Suivi de votre taxi</title>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
 <style>
 :root{--bg:#0E1116;--card:#181C23;--card2:#222833;--line:#2B313C;--text:#F4F5F7;--soft:#C7CDD6;--mute:#9AA3AF;--gold:#F5B300;--goldbg:#2A2410;--green:#22C55E;--greenbg:#0F2A1A;--blue:#7DB7FF}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -12,7 +12,11 @@ html,body{background:var(--bg);color:var(--text);font-family:-apple-system,"Inte
 .etat{background:var(--card);border-radius:18px;padding:16px}
 .etat h1{font-size:22px;font-weight:900}.etat p{color:var(--soft);margin-top:4px;font-size:15px}
 .eta{color:var(--gold);font-weight:900;font-size:30px;margin-top:6px}
-#carte{height:300px;border-radius:18px;overflow:hidden;background:var(--card);z-index:0}
+#carte{height:340px;border-radius:18px;overflow:hidden;background:#E8E4DA;z-index:0;position:relative}
+.taxi{width:44px;height:44px;border-radius:50%;background:#111;border:3px solid #fff;box-shadow:0 3px 10px rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center}
+.taxi svg{transition:transform .6s}
+.pin{display:flex;flex-direction:column;align-items:center}.pin b{background:#16A34A;color:#fff;font-weight:900;font-size:13px;padding:4px 9px;border-radius:10px;border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.35)}.pin i{width:16px;height:16px;border-radius:50%;background:#16A34A;border:3px solid #fff;margin-top:3px;box-shadow:0 0 0 5px rgba(22,163,74,.3)}
+.maplibregl-ctrl-attrib{font-size:9px}
 .maj{color:var(--mute);font-size:13px;margin-top:-4px}
 .veh{background:var(--card);border-radius:18px;padding:16px;display:flex;flex-direction:column;gap:8px}
 .veh .nom{font-size:13px;color:var(--mute);font-weight:800;letter-spacing:1px}
@@ -51,7 +55,7 @@ html,body{background:var(--bg);color:var(--text);font-family:-apple-system,"Inte
   </div>
   <div class="pied">CAP Taxi · captaxi.app</div>
 </div>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
 <script>
 const URL_API='https://rdwqlexsfkptoiohxcnt.supabase.co/rest/v1/rpc/', CLE='sb_publishable_L5WtT9w8fwSE1lBaQkrEFQ_oc5hLKrr';
 const token=new URLSearchParams(location.search).get('t')||'';
@@ -63,20 +67,60 @@ const $=id=>document.getElementById(id);
 $('tmsg').textContent=T.msg;$('texte').placeholder=T.ph;$('envoyer').textContent=T.env;
 async function rpc(f,body){const r=await fetch(URL_API+f,{method:'POST',headers:{apikey:CLE,Authorization:'Bearer '+CLE,'Content-Type':'application/json'},body:JSON.stringify(body)});
   const j=await r.json().catch(()=>null);if(!r.ok)throw new Error((j&&j.message)||'Erreur');return j;}
-let carte=null,mTaxi=null,mDep=null,cadre=false,nbMsg=-1;
-function iconeTaxi(){return L.divIcon({className:'',html:'<div style="font-size:30px;line-height:30px;filter:drop-shadow(0 2px 4px #000)">🚕</div>',iconSize:[30,30],iconAnchor:[15,15]});}
-function iconeDep(){return L.divIcon({className:'',html:'<div style="width:18px;height:18px;border-radius:50%;background:#F5B300;border:3px solid #fff;box-shadow:0 0 0 4px rgba(245,179,0,.35)"></div>',iconSize:[18,18],iconAnchor:[9,9]});}
+let carte=null,carteOk=false,mTaxi=null,mDep=null,cadre=false,nbMsg=-1,styleIgn=null,routeDe=null,routeAt=0,cap=0,derniere=null;
+const STYLE_IGN='https://data.geopf.fr/annexes/ressources/vectorTiles/styles/PLAN.IGN/standard.json';
+function preparerStyle(st){
+  st.layers=st.layers.filter(function(l){
+    if(l.type!=='symbol')return true;
+    if(l.id==='toponyme - odonyme desabrégé'){l.minzoom=14.5;delete l.maxzoom;
+      l.layout['text-size']=['interpolate',['linear'],['zoom'],14.5,12,16,15,18,19];
+      l.layout['text-max-angle']=40;l.layout['text-padding']=1;l.layout['symbol-spacing']=220;
+      l.paint['text-color']='#111111';l.paint['text-halo-width']=2.4;l.paint['text-halo-color']='#ffffff';return true;}
+    return /toponyme (localite|quartier)/i.test(l.id);});
+  return st;}
+const FLECHE='<svg width="24" height="24" viewBox="0 0 24 24"><path d="M12 2 L20 21 L12 16.5 L4 21 Z" fill="#F5B300" stroke="#F5B300" stroke-width="1.5" stroke-linejoin="round"/></svg>';
+function metres(a,b){const k=Math.PI/180,x=(b[0]-a[0])*k*Math.cos((a[1]+b[1])*k/2),y=(b[1]-a[1])*k;return Math.sqrt(x*x+y*y)*6371000;}
+function direction(a,b){const k=Math.PI/180;return Math.atan2((b[0]-a[0])*Math.cos(a[1]*k),b[1]-a[1])/k;}
+function tourner(deg){cap=deg;if(mTaxi)mTaxi.getElement().querySelector('svg').style.transform='rotate('+deg+'deg)';}
+function creerCarte(){
+  if(carte||!styleIgn||!window.maplibregl)return;
+  carte=new maplibregl.Map({container:'carte',style:styleIgn,center:[2.7,48.4],zoom:15,attributionControl:{compact:true},dragRotate:false,pitchWithRotate:false});
+  carte.touchZoomRotate.disableRotation();
+  carte.on('load',function(){
+    carte.addSource('route',{type:'geojson',data:{type:'FeatureCollection',features:[]}});
+    carte.addLayer({id:'route-bord',type:'line',source:'route',layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#ffffff','line-width':10}});
+    carte.addLayer({id:'route',type:'line',source:'route',layout:{'line-cap':'round','line-join':'round'},paint:{'line-color':'#2563EB','line-width':6}});
+    carte.getStyle().layers.forEach(function(l){if(l.type==='symbol')carte.moveLayer(l.id);});
+    carteOk=true;if(derniere)majCarte(derniere);});
+}
+fetch(STYLE_IGN).then(function(r){return r.json();}).then(function(st){styleIgn=preparerStyle(st);if(derniere&&!$('carte').classList.contains('cache'))creerCarte();}).catch(function(){});
+async function majRoute(t,dep){
+  if(routeDe&&metres(routeDe,t)<120&&Date.now()-routeAt<90000)return;
+  routeDe=t;routeAt=Date.now();
+  try{const u='https://data.geopf.fr/navigation/itineraire?resource=bdtopo-osrm&profile=car&optimization=fastest&getSteps=false&geometryFormat=geojson&start='+t[0]+','+t[1]+'&end='+dep[0]+','+dep[1];
+    const j=await (await fetch(u)).json();const g=j.geometry;if(!g||!g.coordinates||!carteOk)return;
+    carte.getSource('route').setData({type:'Feature',geometry:g});
+    const c=g.coordinates;let i=1;while(i<c.length-1&&metres(c[0],c[i])<25)i++;if(c.length>1)tourner(direction(c[0],c[i]));
+  }catch(e){}
+}
 function majCarte(d){
+  derniere=d;
   const montrer=(d.etape==='en_route'||d.etape==='arrive')&&(d.depart_lat||d.lat);
-  $('carte').classList.toggle('cache',!montrer);if(!montrer||!window.L)return;
-  if(!carte){carte=L.map('carte',{zoomControl:false,attributionControl:true});L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap',maxZoom:19}).addTo(carte);}
-  if(d.depart_lat){if(!mDep)mDep=L.marker([d.depart_lat,d.depart_lng],{icon:iconeDep()}).addTo(carte);}
-  if(d.lat){const p=[d.lat,d.lng];if(!mTaxi)mTaxi=L.marker(p,{icon:iconeTaxi()}).addTo(carte);else mTaxi.setLatLng(p);}
-  else if(mTaxi){carte.removeLayer(mTaxi);mTaxi=null;}
-  const pts=[mDep&&mDep.getLatLng(),mTaxi&&mTaxi.getLatLng()].filter(Boolean);
-  if(pts.length===2&&(!cadre||!carte.getBounds().contains(pts[1]))){carte.fitBounds(L.latLngBounds(pts),{padding:[50,50],maxZoom:16});cadre=true;}
-  else if(pts.length===1&&!cadre){carte.setView(pts[0],15);cadre=true;}
-  setTimeout(()=>carte.invalidateSize(),50);
+  $('carte').classList.toggle('cache',!montrer);if(!montrer)return;
+  if(!carte){creerCarte();return;}
+  if(!carteOk)return;
+  const dep=d.depart_lat?[d.depart_lng,d.depart_lat]:null;
+  if(dep&&!mDep){const e=document.createElement('div');e.className='pin';e.innerHTML='<b>'+(EN?'You':'Vous')+'</b><i></i>';mDep=new maplibregl.Marker({element:e,anchor:'bottom'}).setLngLat(dep).addTo(carte);}
+  if(d.lat){const t=[d.lng,d.lat];
+    if(!mTaxi){const e=document.createElement('div');e.className='taxi';e.innerHTML=FLECHE;mTaxi=new maplibregl.Marker({element:e}).setLngLat(t).addTo(carte);tourner(cap);}
+    else{const avant=mTaxi.getLngLat().toArray();if(metres(avant,t)>15)tourner(direction(avant,t));mTaxi.setLngLat(t);}
+    if(dep&&d.etape==='en_route')majRoute(t,dep);else if(d.etape==='arrive')carte.getSource('route').setData({type:'FeatureCollection',features:[]});
+  }else if(mTaxi){mTaxi.remove();mTaxi=null;}
+  const pts=[mDep&&mDep.getLngLat(),mTaxi&&mTaxi.getLngLat()].filter(Boolean);
+  const pad={top:60,bottom:40,left:50,right:50};
+  if(pts.length===2&&(!cadre||!carte.getBounds().contains(pts[1]))){const b=new maplibregl.LngLatBounds(pts[0],pts[0]);b.extend(pts[1]);carte.fitBounds(b,{padding:pad,maxZoom:16.5,duration:cadre?800:0});cadre=true;}
+  else if(pts.length===1&&!cadre){carte.jumpTo({center:pts[0],zoom:16});cadre=true;}
+  setTimeout(function(){carte.resize();},50);
 }
 function ilya(at){const s=Math.max(0,(Date.now()-new Date(at).getTime())/1000);return s<60?T.sec:T.min.replace('{n}',Math.round(s/60));}
 function afficher(d){
