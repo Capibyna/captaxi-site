@@ -118,7 +118,9 @@ function majCarte(d){
   }else if(mTaxi){mTaxi.remove();mTaxi=null;}
   const pts=[mDep&&mDep.getLngLat(),mTaxi&&mTaxi.getLngLat()].filter(Boolean);
   const pad={top:60,bottom:40,left:50,right:50};
-  if(pts.length===2&&(!cadre||!carte.getBounds().contains(pts[1]))){const b=new maplibregl.LngLatBounds(pts[0],pts[0]);b.extend(pts[1]);carte.fitBounds(b,{padding:pad,maxZoom:16.5,duration:cadre?800:0});cadre=true;}
+  if(pts.length===2&&(!cadre||!carte.getBounds().contains(pts[1]))){const b=new maplibregl.LngLatBounds(pts[0],pts[0]);b.extend(pts[1]);const cam=carte.cameraForBounds(b,{padding:pad,maxZoom:16.5});
+    /* les noms de rues n'existent qu'à partir du zoom 15 : si le taxi est loin, on cadre sur le taxi */
+    if(cam&&cam.zoom>=15.2)carte.fitBounds(b,{padding:pad,maxZoom:16.5,duration:cadre?800:0});else carte.easeTo({center:pts[1],zoom:15.2,duration:cadre?800:0});cadre=true;}
   else if(pts.length===1&&!cadre){carte.jumpTo({center:pts[0],zoom:16});cadre=true;}
   setTimeout(function(){carte.resize();},50);
 }
