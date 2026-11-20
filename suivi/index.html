@@ -99,9 +99,31 @@ async function majRoute(t,dep){
   routeDe=t;routeAt=Date.now();
   try{const u='https://data.geopf.fr/navigation/itineraire?resource=bdtopo-osrm&profile=car&optimization=fastest&getSteps=false&geometryFormat=geojson&start='+t[0]+','+t[1]+'&end='+dep[0]+','+dep[1];
     const j=await (await fetch(u)).json();const g=j.geometry;if(!g||!g.coordinates||!carteOk)return;
-    carte.getSource('route').setData({type:'Feature',geometry:g});
+    ligne=g.coordinates;carte.getSource('route').setData({type:'Feature',geometry:g});
     const c=g.coordinates;let i=1;while(i<c.length-1&&metres(c[0],c[i])<25)i++;if(c.length>1)tourner(direction(c[0],c[i]));
   }catch(e){}
+}
+/* Le taxi glisse en douceur le long de la route (entre deux positions) et reste collé à la route tracée */
+let ligne=null,anim=0,trait=0;
+function proj(p,c){const ky=110540,kx=111320*Math.cos(p[1]*Math.PI/180);let m={d:1e12,i:0,q:p};
+  for(let i=0;i<c.length-1;i++){const a=c[i],b=c[i+1],ax=(b[0]-a[0])*kx,ay=(b[1]-a[1])*ky,px=(p[0]-a[0])*kx,py=(p[1]-a[1])*ky,l=ax*ax+ay*ay;
+    let f=l?(px*ax+py*ay)/l:0;f=Math.max(0,Math.min(1,f));const q=[a[0]+(b[0]-a[0])*f,a[1]+(b[1]-a[1])*f],d=metres(p,q);if(d<m.d)m={d:d,i:i,f:f,q:q};}
+  return m;}
+function chemin(a,b){if(ligne&&ligne.length>1){const pa=proj(a,ligne),pb=proj(b,ligne);
+  if(pa.d<40&&pb.d<45&&(pb.i>pa.i||(pb.i===pa.i&&pb.f>=pa.f)))return [pa.q].concat(ligne.slice(pa.i+1,pb.i+1),[pb.q]);}
+  return [a,b];}
+function bouger(t){
+  const de=mTaxi.getLngLat().toArray(),pts=chemin(de,t),cum=[0];
+  for(let i=1;i<pts.length;i++)cum.push(cum[i-1]+metres(pts[i-1],pts[i]));
+  const tot=cum[cum.length-1];cancelAnimationFrame(anim);
+  if(tot<3){mTaxi.setLngLat(pts[pts.length-1]);return;}
+  const duree=tot>3000?1200:7000,t0=performance.now();let prec=de;
+  function pas(now){const x=Math.min(1,(now-t0)/duree),d=tot*x;let j=1;while(j<cum.length-1&&cum[j]<d)j++;
+    const f=(d-cum[j-1])/((cum[j]-cum[j-1])||1),q=[pts[j-1][0]+(pts[j][0]-pts[j-1][0])*f,pts[j-1][1]+(pts[j][1]-pts[j-1][1])*f];
+    mTaxi.setLngLat(q);if(metres(prec,q)>4){tourner(direction(prec,q));prec=q;}
+    if(ligne&&carteOk&&now-trait>400){trait=now;const r=proj(q,ligne);if(r.d<45)carte.getSource('route').setData({type:'Feature',geometry:{type:'LineString',coordinates:[r.q].concat(ligne.slice(r.i+1))}});}
+    if(x<1)anim=requestAnimationFrame(pas);}
+  anim=requestAnimationFrame(pas);
 }
 function majCarte(d){
   derniere=d;
@@ -113,8 +135,8 @@ function majCarte(d){
   if(dep&&!mDep){const e=document.createElement('div');e.className='pin';e.innerHTML='<b>'+(EN?'You':'Vous')+'</b><i></i>';mDep=new maplibregl.Marker({element:e,anchor:'bottom'}).setLngLat(dep).addTo(carte);}
   if(d.lat){const t=[d.lng,d.lat];
     if(!mTaxi){const e=document.createElement('div');e.className='taxi';e.innerHTML=FLECHE;mTaxi=new maplibregl.Marker({element:e}).setLngLat(t).addTo(carte);tourner(cap);}
-    else{const avant=mTaxi.getLngLat().toArray();if(metres(avant,t)>15)tourner(direction(avant,t));mTaxi.setLngLat(t);}
-    if(dep&&d.etape==='en_route')majRoute(t,dep);else if(d.etape==='arrive')carte.getSource('route').setData({type:'FeatureCollection',features:[]});
+    else bouger(t);
+    if(dep&&d.etape==='en_route')majRoute(t,dep);else if(d.etape==='arrive'){ligne=null;carte.getSource('route').setData({type:'FeatureCollection',features:[]});}
   }else if(mTaxi){mTaxi.remove();mTaxi=null;}
   const pts=[mDep&&mDep.getLngLat(),mTaxi&&mTaxi.getLngLat()].filter(Boolean);
   const pad={top:60,bottom:40,left:50,right:50};
